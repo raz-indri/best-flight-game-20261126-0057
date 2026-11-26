@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Coral Sky Run — Kepulauan Luma</title>
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+    background: #0b1e33; font-family: "Segoe UI", Verdana, sans-serif; }
+  #app { position: fixed; inset: 0; }
+  canvas.webgl { display: block; width: 100%; height: 100%; }
+  .hud { position: absolute; color: #eaf6ff; text-shadow: 0 1px 3px rgba(0,0,0,.8);
+    pointer-events: none; user-select: none; z-index: 5; }
+  .panel { background: rgba(6, 22, 38, 0.55); border: 1px solid rgba(140, 210, 255, 0.35);
+    border-radius: 10px; padding: 8px 12px; backdrop-filter: blur(2px); }
+  #hud-left { top: 14px; left: 14px; min-width: 190px; }
+  #hud-left .row { display: flex; justify-content: space-between; gap: 14px;
+    font-size: 15px; line-height: 1.5; }
+  #hud-left .label { color: #9fd8ff; font-size: 11px; letter-spacing: 2px; }
+  #hud-left .value { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  #hud-left .unit { font-size: 11px; color: #9fd8ff; }
+  #hud-right { top: 14px; right: 14px; text-align: right; min-width: 200px; }
+  #hud-right .score { font-size: 30px; font-weight: 800; color: #ffd76a; }
+  #hud-right .sub { font-size: 13px; color: #cfeaff; line-height: 1.5; }
+  #hud-bottom { left: 14px; bottom: 14px; width: 230px; }
+  .bar-label { font-size: 11px; letter-spacing: 2px; color: #9fd8ff; display: flex;
+    justify-content: space-between; }
+  .bar { height: 12px; border-radius: 6px; background: rgba(255,255,255,.15);
+    margin: 3px 0 9px; overflow: hidden; }
+  .bar > div { height: 100%; border-radius: 6px; }
+  #throttle-fill { background: linear-gradient(90deg, #2fae6e, #8be26b); width: 0%; }
+  #fuel-fill { background: linear-gradient(90deg, #ffb02e, #ff7a2e); width: 100%; }
+  #fuel-fill.low { background: linear-gradient(90deg, #ff3b30, #ff7a2e); }
+  #hud-center-bottom { left: 50%; bottom: 12px; transform: translateX(-50%);
+    display: flex; gap: 12px; align-items: flex-end; }
+  #horizon { border-radius: 50%; border: 2px solid rgba(160, 220, 255, .6);
+    background: rgba(6, 22, 38, .55); }
+  #compass { width: 260px; height: 34px; border-radius: 8px; }
+  #hud-target { top: 76px; left: 50%; transform: translateX(-50%); text-align: center;
+    font-size: 15px; }
+  #hud-target .ring-name { color: #ffd76a; font-weight: 700; font-size: 17px; }
+  #hud-target .dist { color: #cfeaff; }
+  #hud-msg { top: 38%; left: 50%; transform: translate(-50%, -50%); text-align: center;
+    font-size: 34px; font-weight: 800; color: #fff; letter-spacing: 1px; display: none; }
+  #hud-msg small { display: block; font-size: 16px; font-weight: 400; color: #cfeaff; margin-top: 6px; }
+  #hud-hint { right: 14px; bottom: 14px; text-align: right; font-size: 12px;
+    color: #cfeaff; line-height: 1.6; }
+  #menu { position: absolute; inset: 0; z-index: 10; display: flex; align-items: center;
+    justify-content: center; background: linear-gradient(180deg, rgba(4,18,34,.25) 0%,
+    rgba(4,18,34,.72) 78%); }
+  #menu .card { text-align: center; color: #eaf6ff; max-width: 640px; padding: 30px 40px; }
+  #menu h1 { margin: 0; font-size: 52px; letter-spacing: 4px; color: #ffd76a;
+    text-shadow: 0 3px 18px rgba(0,0,0,.7); }
+  #menu h2 { margin: 4px 0 14px; font-size: 17px; letter-spacing: 6px; color: #9fd8ff;
+    font-weight: 400; }
+  #menu p { font-size: 15px; line-height: 1.65; color: #d8ecff; }
+  #menu .keys { font-size: 13px; line-height: 1.9; color: #bfe3ff;
+    background: rgba(6,22,38,.55); border: 1px solid rgba(140,210,255,.3);
+    border-radius: 10px; padding: 10px 18px; display: inline-block; margin: 8px 0 16px; }
+  #menu .keys b { color: #ffd76a; }
+  #start-btn { pointer-events: auto; cursor: pointer; font-size: 20px; font-weight: 700;
+    letter-spacing: 2px; color: #082338; background: linear-gradient(180deg, #ffd76a, #ffb02e);
+    border: none; border-radius: 12px; padding: 14px 42px;
+    box-shadow: 0 6px 24px rgba(255, 176, 46, .45); }
+  #start-btn:hover { filter: brightness(1.08); }
+  #end { position: absolute; inset: 0; z-index: 10; display: none; align-items: center;
+    justify-content: center; background: rgba(4,18,34,.55); }
+  #end .card { text-align: center; color: #eaf6ff; background: rgba(6,22,38,.8);
+    border: 1px solid rgba(140,210,255,.35); border-radius: 14px; padding: 28px 44px; }
+  #end h1 { margin: 0 0 8px; font-size: 36px; color: #ffd76a; }
+  #end .stats { font-size: 16px; line-height: 1.9; }
+  #end button { pointer-events: auto; cursor: pointer; font-size: 17px; font-weight: 700;
+    color: #082338; background: linear-gradient(180deg, #ffd76a, #ffb02e);
+    border: none; border-radius: 10px; padding: 11px 30px; margin-top: 14px; }
+  #vignette { position: absolute; inset: 0; pointer-events: none; z-index: 4;
+    background: radial-gradient(ellipse at center, transparent 58%, rgba(2,10,20,.42) 100%); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="vignette"></div>
+
+<div id="hud-left" class="hud panel">
+  <div class="row"><span class="label">ALTITUDE</span><span><span class="value" id="alt">0</span> <span class="unit">FT</span></span></div>
+  <div class="row"><span class="label">AIRSPEED</span><span><span class="value" id="spd">0</span> <span class="unit">KT</span></span></div>
+  <div class="row"><span class="label">HEADING</span><span><span class="value" id="hdg">000</span><span class="unit">&deg;</span></span></div>
+  <div class="row"><span class="label">VERT SPEED</span><span><span class="value" id="vs">0</span> <span class="unit">FT/M</span></span></div>
+</div>
+
+<div id="hud-right" class="hud panel">
+  <div class="score"><span id="score">0</span> PTS</div>
+  <div class="sub">RING <span id="ring">0 / 8</span> &nbsp;•&nbsp; TIME <span id="time">0:00</span><br>
+  <span id="mission">Fly through the rings, then land on Luma runway</span></div>
+</div>
+
+<div id="hud-target" class="hud">
+  <div class="ring-name" id="target-name">RING 1 — CORAL GATE</div>
+  <div class="dist" id="target-dist">— m ahead</div>
+</div>
+
+<div id="hud-bottom" class="hud panel">
+  <div class="bar-label"><span>THROTTLE</span><span id="thr-pct">0%</span></div>
+  <div class="bar"><div id="throttle-fill"></div></div>
+  <div class="bar-label"><span>FUEL</span><span id="fuel-pct">100%</span></div>
+  <div class="bar"><div id="fuel-fill"></div></div>
+</div>
+
+<div id="hud-center-bottom" class="hud">
+  <canvas id="horizon" width="110" height="110"></canvas>
+  <canvas id="compass" width="260" height="34"></canvas>
+</div>
+
+<div id="hud-hint" class="hud">
+  <b>W/S</b> throttle &nbsp; <b>← →</b> bank &nbsp; <b>↑ ↓</b> pitch<br>
+  Mouse steers &nbsp; <b>C</b> camera &nbsp; <b>G</b> gear &nbsp; <b>R</b> restart &nbsp; <b>M</b> sound
+</div>
+
+<div id="hud-msg" class="hud"></div>
+
+<div id="menu">
+  <div class="card">
+    <h1>CORAL SKY RUN</h1>
+    <h2>KEPULAUAN LUMA &nbsp;•&nbsp; ISLAND HOPPER</h2>
+    <p>You are the mail pilot of the Luma archipelago, flying the little seaplane
+    <b>Luma-9 “Kakatua”</b>. Thread all eight sky rings over the islands, mind your
+    fuel and your airspeed, then bring her home for a gentle landing on the Luma
+    runway. Smooth flying pays — hard landings and stalls do not.</p>
+    <div class="keys">
+      <b>W / S</b> throttle &nbsp;•&nbsp; <b>← →</b> bank &nbsp;•&nbsp; <b>↑ ↓</b> pitch &nbsp;•&nbsp; Mouse steers too<br>
+      <b>C</b> chase / cockpit camera &nbsp;•&nbsp; <b>G</b> landing gear &nbsp;•&nbsp; <b>R</b> restart flight
+    </div><br>
+    <button id="start-btn">TAKE OFF ✈</button>
+    <p style="font-size:12px; color:#9fc6e8">Best on desktop Chrome • sound on after first click • no downloads, everything runs offline</p>
+  </div>
+</div>
+
+<div id="end">
+  <div class="card">
+    <h1 id="end-title">LANDED!</h1>
+    <div class="stats" id="end-stats"></div>
+    <button id="again-btn">FLY AGAIN</button>
+  </div>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
